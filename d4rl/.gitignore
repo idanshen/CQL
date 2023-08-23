@@ -4,6 +4,8 @@
 **/*.swp
 rlkit/launchers/config.py
 rlkit/launchers/conf_private.py
+build/
+wandb/
 MANIFEST
 *.egg-info
 \.idea/

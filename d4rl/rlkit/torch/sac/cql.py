@@ -231,7 +231,8 @@ class CQLTrainer(TorchTrainer):
             qf2_loss = self.qf_criterion(q2_pred, q_target)
 
         ## add CQL
-        random_actions_tensor = torch.FloatTensor(q2_pred.shape[0] * self.num_random, actions.shape[-1]).uniform_(-1, 1) # .cuda()
+        random_actions_tensor = torch.FloatTensor(q2_pred.shape[0] * self.num_random, actions.shape[-1]).uniform_(-1, 1).cuda()
+        random_actions_log_prob = self._get_tensor_values(obs, random_actions_tensor, network=self.policy.log_prob)
         curr_actions_tensor, curr_log_pis = self._get_policy_actions(obs, num_actions=self.num_random, network=self.policy)
         new_curr_actions_tensor, new_log_pis = self._get_policy_actions(next_obs, num_actions=self.num_random, network=self.policy)
         q1_rand = self._get_tensor_values(obs, random_actions_tensor, network=self.qf1)
@@ -259,10 +260,28 @@ class CQLTrainer(TorchTrainer):
             cat_q2 = torch.cat(
                 [q2_rand - random_density, q2_next_actions - new_log_pis.detach(), q2_curr_actions - curr_log_pis.detach()], 1
             )
-            
+        if self.min_q_version == 4:
+            # importance sammpled version
+            random_density = np.log(0.5 ** curr_actions_tensor.shape[-1])
+            cat_q1 = torch.cat(
+                [random_actions_log_prob + q1_rand - random_density,
+                 q1_next_actions,
+                 q1_curr_actions], 1
+            )
+            cat_q2 = torch.cat(
+                [random_actions_log_prob + q2_rand - random_density,
+                 q2_next_actions,
+                 q2_curr_actions], 1
+            )
+        if self.min_q_version == 5:
+            q1_next_actions = self._get_tensor_values(next_obs, new_curr_actions_tensor, network=self.qf1)
+            q2_next_actions = self._get_tensor_values(next_obs, new_curr_actions_tensor, network=self.qf2)
+            cat_q1 = torch.cat([q1_next_actions + new_log_pis.detach(), q1_curr_actions + curr_log_pis.detach()], 0)
+            cat_q2 = torch.cat([q2_next_actions + new_log_pis.detach(), q2_curr_actions + curr_log_pis.detach()], 0)
+
         min_qf1_loss = torch.logsumexp(cat_q1 / self.temp, dim=1,).mean() * self.min_q_weight * self.temp
         min_qf2_loss = torch.logsumexp(cat_q2 / self.temp, dim=1,).mean() * self.min_q_weight * self.temp
-                    
+
         """Subtract the log likelihood of data"""
         min_qf1_loss = min_qf1_loss - q1_pred.mean() * self.min_q_weight
         min_qf2_loss = min_qf2_loss - q2_pred.mean() * self.min_q_weight

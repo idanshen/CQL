@@ -1,4 +1,5 @@
 import rlkit.torch.pytorch_util as ptu
+import wandb
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.launchers.launcher_util import setup_logger
@@ -104,7 +105,7 @@ def experiment(variant):
     algorithm.train()
 
 def enable_gpus(gpu_str):
-    if (gpu_str is not ""):
+    if (gpu_str != ""):
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
     return
 
@@ -120,7 +121,7 @@ if __name__ == "__main__":
         env_name='Hopper-v2',
         sparse_reward=False,
         algorithm_kwargs=dict(
-            num_epochs=3000,
+            num_epochs=1000,
             num_eval_steps_per_epoch=1000,
             num_trains_per_train_loop=1000,  
             num_expl_steps_per_train_loop=1000,
@@ -131,10 +132,11 @@ if __name__ == "__main__":
         trainer_kwargs=dict(
             discount=0.99,
             soft_target_tau=5e-3,
-            policy_lr=1E-4,
+            policy_lr=3E-4,
             qf_lr=3E-4,
             reward_scale=1,
             use_automatic_entropy_tuning=True,
+            target_entropy=0.0,
 
             # Target nets/ policy vs Q-function update
             policy_eval_start=40000,
@@ -143,10 +145,10 @@ if __name__ == "__main__":
             # min Q
             temp=1.0,
             min_q_version=3,
-            min_q_weight=1.0,
+            min_q_weight=5.0,
 
             # lagrange
-            with_lagrange=True,   # Defaults to true
+            with_lagrange=False,   # Defaults to true
             lagrange_thresh=10.0,
             
             # extra params
@@ -187,6 +189,7 @@ if __name__ == "__main__":
     variant['seed'] = args.seed
 
     rnd = np.random.randint(0, 1000000)
-    setup_logger(os.path.join('CQL_offline_mujoco_runs', str(rnd)), variant=variant, base_log_dir='/nfs/kun1/users/aviralkumar/random_expert_CQL_runs')
+    setup_logger(os.path.join('CQL_offline_mujoco_runs', str(rnd)), variant=variant, base_log_dir='/home/idanshen/projects/CQL/random_expert_CQL_runs')
     ptu.set_gpu_mode(True)
+    wandb.config.update(variant)
     experiment(variant)

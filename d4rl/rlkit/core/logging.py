@@ -16,6 +16,7 @@ import json
 import pickle
 import errno
 import torch
+import wandb
 
 from rlkit.core.tabulate import tabulate
 
@@ -89,8 +90,11 @@ class Logger(object):
         self._snapshot_gap = 1
 
         self._log_tabular_only = False
+        self._log_to_wandb = True
         self._header_printed = False
         self.table_printer = TerminalTablePrinter()
+        self.curr_epoch = 0
+        wandb.init(project="cql", config={})
 
     def reset(self):
         self.__init__()
@@ -174,6 +178,9 @@ class Logger(object):
     def record_tabular(self, key, val):
         self._tabular.append((self._tabular_prefix_str + str(key), str(val)))
 
+    def update_epoch(self, epoch):
+        self.curr_epoch = epoch
+
     def record_dict(self, d, prefix=None):
         if prefix is not None:
             self.push_tabular_prefix(prefix)
@@ -181,6 +188,10 @@ class Logger(object):
             self.record_tabular(k, v)
         if prefix is not None:
             self.pop_tabular_prefix()
+        if self._log_to_wandb:
+            if prefix is not None:
+                d = {prefix + k: v for k, v in d.items()}
+            wandb.log(d, step=int(self.curr_epoch))
 
     def push_tabular_prefix(self, key):
         self._tabular_prefixes.append(key)

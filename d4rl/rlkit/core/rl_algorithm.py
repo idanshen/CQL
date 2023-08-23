@@ -84,6 +84,8 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         Replay Buffer
         """
+        logger.update_epoch(epoch)
+
         logger.record_dict(
             self.replay_buffer.get_diagnostics(),
             prefix='replay_buffer/'
@@ -109,8 +111,12 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
                 prefix='exploration/',
             )
         if not self.batch_rl or self.eval_both:
+            dict = eval_util.get_generic_path_information(expl_paths)
+            if "Average Returns" in dict:
+                avg_norm_ret = self.eval_env.get_normalized_score(dict["Average Returns"])
+                dict["Average Returns Normalized"] = avg_norm_ret
             logger.record_dict(
-                eval_util.get_generic_path_information(expl_paths),
+                dict,
                 prefix="exploration/",
             )
         """
@@ -126,8 +132,12 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
                 self.eval_env.get_diagnostics(eval_paths),
                 prefix='evaluation/',
             )
+        dict = eval_util.get_generic_path_information(eval_paths)
+        if "Average Returns" in dict:
+            avg_norm_ret = self.eval_env.get_normalized_score(dict["Average Returns"])
+            dict["Average Returns Normalized"] = avg_norm_ret
         logger.record_dict(
-            eval_util.get_generic_path_information(eval_paths),
+            dict,
             prefix="evaluation/",
         )
 
